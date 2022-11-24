@@ -2,62 +2,34 @@ package Chainsaw.crypto
 
 import Chainsaw._
 import Chainsaw.arithmetic._
+import Chainsaw.dag._
 
-import scala.util.Random
+case class ModularAdd(widthIn: Int, constantModulus: Option[BigInt], sub: Boolean)
+  extends Dag {
+  val k = widthIn
 
-// TODO: this should be implemented automatically by CPA + FineReduction
-case class ModularAdd(width: Int, constantModulus: Option[BigInt], adderType: AdderType)
-  extends ChainsawGenerator {
-
-  constantModulus match {
-    case Some(modulus) => require(modulus.bitLength <= width)
-    case None => ???
-  }
+  require(constantModulus.forall(_.bitLength == k))
 
   override def name = getAutoName(this)
 
-  val cpaGen = CpaS2S(adderType, width, withCarry = true)
-  val redcGen = FineReduction(constantModulus.get, 2)
-  logger.info(redcGen.M.bitLength.toString)
-
-  override def impl(dataIn: Seq[Any]): Seq[BigInt] = redcGen.impl(cpaGen.impl(dataIn))
-
-  override var inputTypes = constantModulus match {
-    case Some(_) => Seq.fill(2)(UIntInfo(width))
-    case None => Seq.fill(3)(UIntInfo(width))
-  }
-  override var outputTypes = Seq(UIntInfo(width))
-
-  override def generateTestCases = constantModulus match {
-    case Some(modulus) => Seq.fill(1000)(inputWidths.map(width => BigInt(width, Random)))
-      .filter(_.forall(_ < modulus))
-      .flatten
-    case None => ???
+  override def impl(dataIn: Seq[Any]) = {
+    val data = dataIn.asInstanceOf[Seq[BigInt]]
+    val ret = if (sub) (data(0) - data(1)).mod(constantModulus.get) else data.sum.mod(constantModulus.get)
+    Seq(ret)
   }
 
-  override var inputFormat = inputNoControl
-  override var outputFormat = outputNoControl
+  constantModulus match {
+    case Some(value) =>
+      val adder = Cpa(if (sub) BinarySubtractor else BinaryAdder, Seq(k), S2S, withCarry = true).asVertex
+      val moder = (if (sub) FineReduction(value, 1, -1) else FineReduction(value, 2, 0)).asVertex
 
-  override var latency = cpaGen.latency + redcGen.latency
+      val a, b = InputVertex(UIntInfo(k))
+      val s = OutputVertex(UIntInfo(k))
 
-  override def implH = new ChainsawModule(this) {
-    val cpa = cpaGen.implH
-    val redc = redcGen.implH
-
-    cpa.dataIn := dataIn
-    redc.dataIn := cpa.dataOut
-    dataOut := redc.dataOut
+      adder := (a, b)
+      moder := adder.out(0)
+      s := moder.out(0)
   }
 
-  override def implNaiveH = Some(new ChainsawModule(this) {
-    constantModulus match {
-      case Some(modulus) =>
-        val ret = adderType match {
-          case BinaryAdder => uintDataIn.reduce(_ +^ _) % modulus
-          case BinarySubtractor => (uintDataIn.reduce(_ - _) % modulus).resize(width)
-        }
-        uintDataOut.head := ret.d(latency)
-      case None => ???
-    }
-  })
+  graphDone()
 }
