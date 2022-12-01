@@ -1,4 +1,9 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o xtrace
 
 # sbt commands for regression test
-testOnly Chainsaw.* -- -l *Isca2023Test *
+sbt testOnly Chainsaw.* -- -l *Isca2023Test *
 

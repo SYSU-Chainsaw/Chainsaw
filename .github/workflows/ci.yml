@@ -1,0 +1,28 @@
+name: CI
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  # CI runs every hour
+  schedule: [cron: "0 * * * *"]
+
+jobs:
+  ci-check:
+    name: CI Build and Simulate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v2
+      - uses: olafurpg/setup-scala@v11
+        with:
+          java-version: adopt@1.11
+      - name: build and simulate
+        run : |
+          sudo apt-get update
+          sudo apt-get install -y iverilog verilator
+          ./run.sh
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
