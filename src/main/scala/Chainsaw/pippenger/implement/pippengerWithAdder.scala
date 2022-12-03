@@ -18,14 +18,15 @@ class pippengerWithAdder(pWidth: Int, N: Int, W: Int, w: Int) extends Component 
     val sum = master Flow pType(pWidth)
   }
 
-  val adderDag = Array.fill(2)(new EllipticCurveAdder(new ShortWeierstrassCurve(baseModulus, 0, 1), pWidth, Option(baseModulus)))
+  val adderDag = Array.fill(1)(new EllipticCurveAdder(new ShortWeierstrassCurve(baseModulus, 0, 1), pWidth, Option(baseModulus)))
   val pippenger = new pippenger(pType(pWidth), pType(pWidth).init, N, W, w, adderDag(0).latency)
   val adder = adderDag.map(_.implH)
 
-  for (i <- 0 until 2) {
+  for (i <- 0 until 1) {
     adder(i).dataIn := Vec(pippenger.io.adderPort(i).a.asBits.subdivideIn(4 slices) ++ pippenger.io.adderPort(i).b.asBits.subdivideIn(4 slices))
     pippenger.io.adderPort(i).s.assignFromBits(adder(i).dataOut.asBits)
   }
+  pippenger.io.adderPort(1).s.assignDontCare()
 
   pippenger.io.inputData.valid := io.inputData.valid
   pippenger.io.inputData.k := io.inputData.k
