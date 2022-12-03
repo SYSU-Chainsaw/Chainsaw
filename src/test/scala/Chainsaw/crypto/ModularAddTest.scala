@@ -13,7 +13,7 @@ class ModularAddTest extends ChainsawFlatSpec {
 
   Ms.foreach(M =>
     adderTypes.foreach(adderType =>
-      testGenerator(ModularAdd(377, M, adderType))
+      testGenerator(ModularAdd(377, M, false))
     ))
 
 
